@@ -14,9 +14,14 @@ def lambda_handler(event, context):
             ])
         instance_id = described_instances['Reservations'][0]['Instances'][0]['InstanceId']
         instance = session.resource('ec2').Instance(instance_id)
-        instance.start()
-        instance.wait_until_running()
-        return {"message": "Instance is running"}
+        if instance.state['Name'] == 'running':
+            return {"message": "Instance is already running"}
+        elif instance.state['Name'] == 'stopped':
+            instance.start()
+            instance.wait_until_running()
+            return {"message": "Instance is running"}
+        else:
+            return ValueError("Unexpected instance state")
     except Exception as e:
         print(e)
         raise ValueError("Error :(")

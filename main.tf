@@ -3,14 +3,24 @@ provider "aws" {
   region  = "us-east-1"
 }
 
-variable "lambda_function_name" {
+variable "lambda_function_start_server_name" {
   default = "lambda_start_function"
+}
+
+variable "lambda_function_stop_server_name" {
+  default = "lambda_stop_function"
 }
 
 data "archive_file" "lambda_start_server_archive" {
   type        = "zip"
   source_file = "lambdas/start_server.py"
   output_path = "lambda_start_function_payload.zip"
+}
+
+data "archive_file" "lambda_stop_server_archive" {
+  type        = "zip"
+  source_file = "lambdas/stop_server.py"
+  output_path = "lambda_stop_function_payload.zip"
 }
 
 data "aws_iam_policy_document" "assume_role" {
@@ -58,7 +68,7 @@ resource "aws_iam_role_policy_attachment" "attach_ec2_policy" {
 resource "aws_lambda_function" "start_server_lambda" {
 
   filename      = "lambda_start_function_payload.zip"
-  function_name = var.lambda_function_name
+  function_name = var.lambda_function_start_server_name
   role          = aws_iam_role.iam_for_lambda.arn
   handler       = "start_server.lambda_handler"
   source_code_hash = data.archive_file.lambda_start_server_archive.output_base64sha256
@@ -77,5 +87,30 @@ resource "aws_lambda_function" "start_server_lambda" {
 
 resource "aws_lambda_function_url" "start_server_url" {
   function_name      = aws_lambda_function.start_server_lambda.function_name
+  authorization_type = "NONE"
+}
+
+resource "aws_lambda_function" "stop_server_lambda" {
+
+  filename      = "lambda_stop_function_payload.zip"
+  function_name = var.lambda_function_stop_server_name
+  role          = aws_iam_role.iam_for_lambda.arn
+  handler       = "stop_server.lambda_handler"
+  source_code_hash = data.archive_file.lambda_stop_server_archive.output_base64sha256
+  runtime = "python3.12"
+  timeout = 120
+  logging_config {
+    log_format = "Text"
+  }
+
+  environment {
+    variables = {
+      stack = "conan"
+    }
+  }
+}
+
+resource "aws_lambda_function_url" "stop_server_url" {
+  function_name      = aws_lambda_function.stop_server_lambda.function_name
   authorization_type = "NONE"
 }
